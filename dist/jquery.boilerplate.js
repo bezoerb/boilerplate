@@ -6,61 +6,178 @@
  *  Made by Zeno Rocha
  *  Under MIT License
  */
-// the semi-colon before function invocation is a safety net against concatenated
-// scripts and/or other plugins which may not be closed properly.
-;(function ( $, window, document, undefined ) {
+ // the semi-colon before function invocation is a safety net against concatenated
+ // scripts and/or other plugins which may not be closed properly.
+;(function (factory) {
+	"use strict";
 
-		// undefined is used here as the undefined global variable in ECMAScript 3 is
-		// mutable (ie. it can be changed by someone else). undefined isn't really being
-		// passed in so we can ensure the value of it is truly undefined. In ES5, undefined
-		// can no longer be modified.
+	if (typeof define === "function" && define.amd) {
+		// AMD. Register as an anonymous module.
+		define(["jquery"], factory);
+	} else {
+		// Browser globals
+		factory(jQuery);
+	}
+}(function ($, undefined) {
+	"use strict";
 
-		// window and document are passed through as local variable rather than global
-		// as this (slightly) quickens the resolution process and can be more efficiently
-		// minified (especially when both are regularly referenced in your plugin).
+	var PLUGIN_NAME = "defaultPluginName",
+		NAMESPACE = "defaultNamespace",
 
-		// Create the defaults once
-		var pluginName = "defaultPluginName",
-				defaults = {
-				propertyName: "value"
+	// Event callbacks registered fot this plugin
+	// seperated with ,
+		CALLBACKS = "onInit",
+		_cleanData = null;
+
+
+	// static constructs
+	$[NAMESPACE] = $[NAMESPACE] || {version: "1.0"};
+
+	$[NAMESPACE][PLUGIN_NAME] = {
+
+		// General Configuration
+		defaults: {
+			debug: false
+		}
+	};
+
+	// over-ride remove so it triggers remove
+	if ($.cleanData) {
+		_cleanData = $.cleanData;
+		$.cleanData = function (elems) {
+			for (var i = 0, elem; (elem = elems[i]) !== undefined; i++) {
+				try {
+					$(elem).triggerHandler("remove");
+				} catch (e) {
+				}
+			}
+			_cleanData(elems);
 		};
+	}
 
-		// The actual plugin constructor
-		function Plugin ( element, options ) {
-				this.element = element;
-				// jQuery has an extend method which merges the contents of two or
-				// more objects, storing the result in the first object. The first object
-				// is generally empty as we don't want to alter the default options for
-				// future instances of the plugin
-				this.settings = $.extend( {}, defaults, options );
-				this._defaults = defaults;
-				this._name = pluginName;
-				this.init();
+
+	// The actual plugin constructor
+	function Plugin(root, conf) {
+
+		// private vars
+		var self = this,
+			$root = $(root),		// root element
+			fire = $root.add(self); // elements to fire events
+
+		// allow config overwrite from data attributes
+		conf = $.extend(true, {}, conf, $root.data());
+
+		// private methods
+
+		/**
+		 * Just a private dummy method
+		 */
+		function privateMethod() {
+			// or do something else
+			// all variables are available here
 		}
 
-		Plugin.prototype = {
-				init: function () {
-						// Place initialization logic here
-						// You already have access to the DOM element and
-						// the options via the instance, e.g. this.element
-						// and this.settings
-						// you can add more functions like the one below and
-						// call them like so: this.yourOtherFunction(this.element, this.settings).
-						console.log("xD");
-				},
-				yourOtherFunction: function () {
-						// some logic
+		// API methods
+		$.extend(self, {
+
+			/**
+			 * Plugin initialization
+			 * @param {Event} e
+			 * @return {${Constructor}} for fluent interface
+			 */
+			init: function init(e) {
+				// Place initialization logic here
+				// You already have access to the DOM element and the options,
+				// e.g., root and conf
+				privateMethod();
+
+				// onInit
+				e = e || $.Event();
+				e.type = "onInit";
+				fire.trigger(e);
+
+				// return self for fluent interface
+				return self;
+			},
+
+			/**
+			 * Retrieve plugin config
+			 * @param {String} key
+			 * @return {Object}
+			 */
+			getConf: function getConf(key) {
+				if (typeof key !== "undefined" && ({}).hasOwnProperty.call(conf, key)) {
+					return conf[key];
+				} else {
+					return conf;
 				}
-		};
+			},
 
-		// A really lightweight plugin wrapper around the constructor,
-		// preventing against multiple instantiations
-		$.fn[ pluginName ] = function ( options ) {
-				return this.each(function() {
-						if ( !$.data( this, "plugin_" + pluginName ) ) {
-								$.data( this, "plugin_" + pluginName, new Plugin( this, options ) );
-						}
-				});
-		};
+			/**
+			 * Retrieve root element
+			 * @return {HTMLElement}
+			 */
+			getRoot: function getRoot() {
+				return $root;
+			},
 
-})( jQuery, window, document );
+			/**
+			 * Unbind events and remove creatded dom elements
+			 * @param {Event} e
+			 */
+			destroy: function destroy() {
+				$root.off("." + NAMESPACE + "." + PLUGIN_NAME).removeData(PLUGIN_NAME);
+			}
+		});
+
+		// callbacks
+		$.each(CALLBACKS.split(","), function (i, _name) {
+			// remove whitespaces before and after
+			var name = $.trim(_name);
+			if (name === "") {
+				return;
+			}
+
+			// configuration
+			if ($.isFunction(conf[name])) {
+				$(self).on(name + "." + NAMESPACE + "." + PLUGIN_NAME, conf[name]);
+			}
+
+			// API
+			self[name] = function (fn) {
+				$(self).on(name + "." + NAMESPACE + "." + PLUGIN_NAME, fn);
+				return self;
+			};
+		});
+
+		// remove handler
+		$root.on("remove", function () {
+			self.destroy();
+		});
+
+		// start initialization
+		self.init(null);
+	}
+
+
+	// A really lightweight plugin wrapper around the constructor,
+	// preventing against multiple instantiations
+	$.fn[ PLUGIN_NAME ] = function (conf) {
+		conf = $.extend(true, {}, $[NAMESPACE][PLUGIN_NAME].defaults, conf);
+
+		// already constructed 
+		var el = $(this).data(PLUGIN_NAME);
+		if (el) {
+			return conf.api ? el : $(this);
+		}
+
+		$(this).each(function () {
+			el = new Plugin($(this), conf);
+			$(this).data(PLUGIN_NAME, el);
+		});
+
+		// return plugin or element based on config
+		return conf.api ? $(this).data(PLUGIN_NAME) : $(this);
+	};
+}));
+
