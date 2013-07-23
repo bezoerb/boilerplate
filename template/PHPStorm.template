@@ -1,0 +1,188 @@
+/**
+ * jQuery Plugin - ${Plugin_name}
+ *
+ * @usage: ${DS}(SELECTOR).${Plugin_name}(OPTIONS)
+ *
+ * @copyright    Copyright (c) ${YEAR} ${USER} @bezoerb
+ */
+ ;(function (factory) {
+    "use strict";
+	
+    if (typeof define === 'function' && define.amd) {
+        // AMD. Register as an anonymous module.
+        define(['jquery'], factory);
+    } else {
+        // Browser globals
+        factory(jQuery);
+    }
+}(function (${DS},  undefined) {
+	"use strict";
+
+	var PLUGIN_NAME = "${Plugin_name}",
+		NAMESPACE = "${Namespace}",
+		
+		// Event callbacks registered fot this plugin
+		CALLBACKS = "onBeforeLoad,onLoad";
+
+
+	// static constructs
+	${DS}[NAMESPACE] = ${DS}[NAMESPACE] || {version:'1.0'};
+
+	${DS}[NAMESPACE][PLUGIN_NAME] = {
+
+		/*
+		 * General Configuration
+		 */
+		defaults:{
+			debug:false
+		}
+	};
+
+	// over-ride remove so it triggers remove
+	if (${DS}.cleanData) {
+		var _cleanData = ${DS}.cleanData;
+		${DS}.cleanData = function (elems) {
+			for (var i = 0, elem; (elem = elems[i]) !== undefined; i++) {
+				try {
+					${DS}(elem).triggerHandler('remove');
+				} catch (e) {
+				}
+			}
+			_cleanData(elems);
+		};
+	}
+
+
+	// The actual plugin constructor
+	function ${Constructor}(root, conf) {
+
+		// private vars
+		var self = this,			
+			${DS}root = ${DS}(root), 	// root element		
+			fire = ${DS}root.add(self); // elements to fire events
+
+		// allow config overwrite from data attributes
+		conf = ${DS}.extend(true, {}, conf, ${DS}root.data());
+
+		// private methods
+
+		/**
+		 * Just a private dummy method
+		 */
+		function privateMethod() {
+			// or do something else
+			// all variables are available here
+		}
+
+		// API methods
+		
+		${DS}.extend(self, {
+
+			/**
+			 * Plugin initialization
+			 * @param {Event} e
+			 * @return {${Constructor}} for fluent interface
+			 */
+			init:function init(e) {
+				// onBeforeLoad
+				e = e || ${DS}.Event();
+				e.type = "onBeforeLoad";
+				fire.trigger(e);
+				if (e.isDefaultPrevented()) {
+					return self;
+				}
+
+				// Place initialization logic here
+				// You already have access to the DOM element and the options,
+				// e.g., root and conf
+				privateMethod();
+
+				// onLoad
+				e = e || ${DS}.Event();
+				e.type = "onLoad";
+				fire.trigger(e);
+
+				// return self for fluent interface
+				return self;
+			},
+
+			/**
+			 * Retrieve plugin config
+			 * @param {String} key
+			 * @return {Object}
+			 */
+			getConf:function getConf(key) {
+				if (typeof key !== 'undefined' && ({}).hasOwnProperty.call(conf, key)) {
+					return conf[key];
+				} else {
+					return conf;
+				}
+			},
+
+			/**
+			 * Retrieve root element
+			 * @return {HTMLElement}
+			 */
+			getRoot:function getRoot() {
+				return ${DS}root;
+			},
+
+			/**
+			 * Unbind events and remove creatded dom elements
+			 * @param {Event} e
+			 */
+			destroy:function destroy() {
+				${DS}root.off('.' + NAMESPACE + '.' + PLUGIN_NAME).removeData(PLUGIN_NAME);
+			}
+		});
+
+		// callbacks
+		${DS}.each(CALLBACKS.split(","), function (i, _name) {
+			// remove whitespaces before and after
+			var name = ${DS}.trim(_name);
+			if (name === "") {
+				return;
+			}
+
+			// configuration
+			if (${DS}.isFunction(conf[name])) {
+				${DS}(self).on(name + '.' + NAMESPACE + '.' + PLUGIN_NAME, conf[name]);
+			}
+
+			// API
+			self[name] = function (fn) {
+				${DS}(self).on(name + '.' + NAMESPACE + '.' + PLUGIN_NAME, fn);
+				return self;
+			};
+		});
+
+		// remove handler
+		${DS}root.on('remove', function () {
+			self.destroy();
+		});
+
+		// start initialization
+		self.init(null);
+	}
+
+
+	// A really lightweight plugin wrapper around the constructor,
+	// preventing against multiple instantiations
+	${DS}.fn[ PLUGIN_NAME ] = function (conf) {
+		conf = ${DS}.extend(true, {}, ${DS}[NAMESPACE][PLUGIN_NAME].defaults, conf);
+		
+		// already constructed 
+		var el = ${DS}(this).data(PLUGIN_NAME);
+		if (el) {
+			return conf.api ? el : ${DS}(this);
+		}
+		
+		${DS}(this).each(function () {
+			el = new ${Constructor}(${DS}(this), conf);
+			${DS}(this).data(PLUGIN_NAME, el);
+		});
+
+		// return plugin or element based on config
+		return conf.api ? ${DS}(this).data(PLUGIN_NAME) : ${DS}(this);
+	};
+}));
